@@ -1,0 +1,12 @@
+{
+  "name": "server-side-validation-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Node.js web application demonstrating server-side form validation.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
