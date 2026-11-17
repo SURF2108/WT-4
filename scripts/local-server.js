@@ -1,23 +1,32 @@
+"use strict";
+
+require("dotenv").config();
+
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { URL } = require("node:url");
-const { validate } = require("./lib/validation");
 
 const PORT = Number(process.env.PORT) || 3000;
-const MAX_BODY_BYTES = 10 * 1024;
+const MAX_BODY_BYTES = 16 * 1024;
+const PUBLIC_DIR = path.join(__dirname, "..", "public");
 const STATIC_FILES = {
   "/": { file: "index.html", type: "text/html; charset=utf-8" },
   "/index.html": { file: "index.html", type: "text/html; charset=utf-8" },
   "/styles.css": { file: "styles.css", type: "text/css; charset=utf-8" },
   "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
 };
+const API_ROUTES = {
+  "/api/auth": require("../api/auth"),
+  "/api/budget": require("../api/budget"),
+  "/api/transactions": require("../api/transactions"),
+};
 
 function sendJson(response, statusCode, body) {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store, private",
     "X-Content-Type-Options": "nosniff",
-    "Cache-Control": "no-store",
   });
   response.end(JSON.stringify(body));
 }
@@ -26,21 +35,17 @@ function readJson(request) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let bytesRead = 0;
-    let tooLarge = false;
     request.on("data", (chunk) => {
       bytesRead += chunk.length;
       if (bytesRead > MAX_BODY_BYTES) {
-        tooLarge = true;
-        return;
-      }
-      if (tooLarge) {
+        reject(Object.assign(new Error("Request body is too large."), { statusCode: 413 }));
+        request.resume();
         return;
       }
       chunks.push(chunk);
     });
     request.on("end", () => {
-      if (tooLarge) {
-        reject(Object.assign(new Error("Request body is too large."), { statusCode: 413 }));
+      if (bytesRead > MAX_BODY_BYTES) {
         return;
       }
       try {
@@ -53,12 +58,35 @@ function readJson(request) {
   });
 }
 
+function createApiResponse(response) {
+  let statusCode = 200;
+  const headers = {};
+  return {
+    setHeader(name, value) {
+      headers[name] = value;
+    },
+    status(code) {
+      statusCode = code;
+      return this;
+    },
+    json(body) {
+      response.writeHead(statusCode, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store, private",
+        "X-Content-Type-Options": "nosniff",
+        ...headers,
+      });
+      response.end(JSON.stringify(body));
+    },
+  };
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, "http://localhost");
 
   if (request.method === "GET" && STATIC_FILES[url.pathname]) {
     const asset = STATIC_FILES[url.pathname];
-    fs.readFile(path.join(__dirname, asset.file), (error, contents) => {
+    fs.readFile(path.join(PUBLIC_DIR, asset.file), (error, contents) => {
       if (error) {
         response.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
         response.end("Unable to load the requested page asset.");
@@ -68,56 +96,39 @@ const server = http.createServer(async (request, response) => {
         "Content-Type": asset.type,
         "X-Content-Type-Options": "nosniff",
         "Content-Security-Policy": "default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
       });
       response.end(contents);
     });
     return;
   }
 
-  if (url.pathname === "/api/register") {
-    if (request.method !== "POST") {
-      response.writeHead(405, { Allow: "POST" });
-      response.end();
-      return;
+  const apiHandler = API_ROUTES[url.pathname];
+  if (apiHandler) {
+    const headers = {
+      method: request.method,
+      url: request.url,
+      headers: request.headers,
+    };
+    if (["POST", "PUT", "PATCH"].includes(request.method)) {
+      if (!request.headers["content-type"]?.startsWith("application/json")) {
+        headers.body = undefined;
+      } else {
+        try {
+          headers.body = await readJson(request);
+        } catch (error) {
+          sendJson(response, error.statusCode || 400, { message: error.message });
+          return;
+        }
+      }
     }
 
-    if (!request.headers["content-type"]?.startsWith("application/json")) {
-      sendJson(response, 415, { message: "Send the form as JSON." });
-      return;
-    }
-
-    try {
-      const values = await readJson(request);
-      const errors = validate(values);
-      if (Object.keys(errors).length) {
-        sendJson(response, 400, {
-          message: "Please correct the highlighted fields and submit again.",
-          errors,
-        });
-        return;
-      }
-      sendJson(response, 200, {
-        message: "Your details passed server-side validation. Nothing was stored.",
-      });
-    } catch (error) {
-      if (error.statusCode === 413) {
-        sendJson(response, 413, { message: error.message });
-        return;
-      }
-      if (error.statusCode === 400) {
-        sendJson(response, 400, { message: error.message });
-        return;
-      }
-      console.error("Failed to process registration request:", error);
-      sendJson(response, 500, {
-        message: "The form could not be processed. Please try again.",
-      });
-    }
+    await apiHandler(headers, createApiResponse(response));
     return;
   }
 
   if (request.method !== "GET") {
-    response.writeHead(405, { Allow: "GET" });
+    response.writeHead(405, { Allow: "GET, POST, PUT, DELETE" });
     response.end();
     return;
   }
@@ -126,6 +137,6 @@ const server = http.createServer(async (request, response) => {
   response.end("Page not found.");
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`Validation demo running at http://localhost:${PORT}`);
+server.listen(PORT, "127.0.0.1", () => {
+  console.log(`Budget tracker running at http://localhost:${PORT}`);
 });

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A private monthly budget and expense tracker.">
+  <meta name="theme-color" content="#f5f6f1">
+  <title>Daybook — Budget tracker</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="Daybook home">
+        <span class="brand-mark" aria-hidden="true">d.</span>
+        <span>daybook<span class="brand-period">.</span></span>
+      </a>
+      <div class="topbar-note"><span class="privacy-dot"></span>Private budget space</div>
+      <button class="button button-quiet" id="sign-out" type="button" hidden>Sign out</button>
+    </header>
+
+    <section class="login-layout" id="login-screen" aria-labelledby="login-title" hidden>
+      <div class="login-copy">
+        <p class="eyebrow">A LITTLE MORE CLARITY</p>
+        <h1 id="login-title">Make room for<br>what matters.</h1>
+        <p class="intro">A calm place to plan your month, keep an eye on spending, and see where your money goes.</p>
+        <div class="login-caption"><span aria-hidden="true">✳</span> Your budget stays yours.</div>
+      </div>
+      <form class="login-card" id="login-form">
+        <div class="card-icon" aria-hidden="true">↗</div>
+        <p class="eyebrow">WELCOME BACK</p>
+        <h2>Unlock your budget</h2>
+        <p class="muted">Enter your private app password to continue.</p>
+        <label for="app-password">App password</label>
+        <input id="app-password" name="password" type="password" autocomplete="current-password" required>
+        <p class="field-error" id="login-error" role="alert" hidden></p>
+        <button class="button button-primary button-wide" type="submit">Continue <span aria-hidden="true">→</span></button>
+        <p class="fine-print" id="setup-help" hidden>Set up <code>MONGODB_URI</code>, <code>APP_PASSWORD</code>, and <code>SESSION_SECRET</code> in the server environment to enable this tracker.</p>
+      </form>
+    </section>
+
+    <section class="dashboard" id="dashboard" hidden>
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow">YOUR MONEY, IN FOCUS</p>
+          <h1>Monthly overview<span class="heading-period">.</span></h1>
+          <p class="intro">Small steps make a meaningful difference.</p>
+        </div>
+        <label class="month-picker">
+          <span class="sr-only">Choose month</span>
+          <span aria-hidden="true">▦</span>
+          <input id="month-picker" type="month">
+        </label>
+      </div>
+
+      <p class="notice" id="app-notice" role="status" hidden></p>
+
+      <section class="summary-grid" aria-label="Monthly summary">
+        <article class="summary-card balance-card">
+          <div class="summary-heading"><span>Budget left</span><span class="summary-icon" aria-hidden="true">◉</span></div>
+          <p class="summary-value" id="remaining-value">₹0</p>
+          <p class="summary-caption" id="remaining-caption">Set a monthly budget to get started</p>
+          <div class="progress-track"><span id="budget-progress"></span></div>
+          <p class="progress-caption" id="progress-caption">0% of budget used</p>
+        </article>
+        <article class="summary-card">
+          <div class="summary-heading"><span>Income</span><span class="summary-icon income-icon" aria-hidden="true">↙</span></div>
+          <p class="summary-value" id="income-value">₹0</p>
+          <p class="summary-caption" id="income-caption">0 entries this month</p>
+        </article>
+        <article class="summary-card">
+          <div class="summary-heading"><span>Spent</span><span class="summary-icon expense-icon" aria-hidden="true">↗</span></div>
+          <p class="summary-value" id="spent-value">₹0</p>
+          <p class="summary-caption" id="spent-caption">0 entries this month</p>
+        </article>
+      </section>
+
+      <div class="content-grid">
+        <div class="main-column">
+          <section class="panel budget-panel" aria-labelledby="budget-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">PLAN AHEAD</p>
+                <h2 id="budget-title">Monthly spending limit</h2>
+              </div>
+              <span class="panel-symbol" aria-hidden="true">⌁</span>
+            </div>
+            <p class="muted">Choose a monthly target for expenses. You can update it any time.</p>
+            <form class="budget-form" id="budget-form">
+              <label class="sr-only" for="budget-amount">Monthly spending limit in rupees</label>
+              <span class="currency-prefix">₹</span>
+              <input id="budget-amount" name="amount" inputmode="decimal" placeholder="0.00" required>
+              <button class="button button-secondary" type="submit">Save limit</button>
+            </form>
+            <p class="field-error" id="budget-error" role="alert" hidden></p>
+          </section>
+
+          <section class="panel transactions-panel" aria-labelledby="transactions-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">KEEP A RECORD</p>
+                <h2 id="transactions-title">Recent activity</h2>
+              </div>
+              <span class="count-pill" id="transaction-count">0</span>
+            </div>
+            <div class="transaction-list" id="transaction-list"></div>
+            <p class="empty-state" id="empty-state" hidden>
+              <span class="empty-icon" aria-hidden="true">✳</span>
+              <strong>A fresh page.</strong>
+              Add your first transaction to start tracking this month.
+            </p>
+            <p class="fine-print" id="list-limit" hidden>Showing the latest 250 entries for this month.</p>
+          </section>
+        </div>
+
+        <aside class="side-column">
+          <section class="panel add-panel" aria-labelledby="add-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">LOG IT AS IT HAPPENS</p>
+                <h2 id="add-title">Add a transaction</h2>
+              </div>
+              <span class="panel-symbol add-symbol" aria-hidden="true">＋</span>
+            </div>
+            <form id="transaction-form">
+              <div class="segmented-control" role="group" aria-label="Transaction type">
+                <button type="button" class="segment selected" data-type="expense" aria-pressed="true">Expense</button>
+                <button type="button" class="segment" data-type="income" aria-pressed="false">Income</button>
+              </div>
+              <input id="transaction-type" name="type" type="hidden" value="expense">
+              <div class="field">
+                <label for="description">Description</label>
+                <input id="description" name="description" maxlength="80" placeholder="e.g. Weekly groceries" required>
+                <p class="field-error" id="description-error" hidden></p>
+              </div>
+              <div class="field-row">
+                <div class="field">
+                  <label for="amount">Amount</label>
+                  <div class="input-with-prefix">
+                    <span>₹</span>
+                    <input id="amount" name="amount" inputmode="decimal" placeholder="0.00" required>
+                  </div>
+                  <p class="field-error" id="amount-error" hidden></p>
+                </div>
+                <div class="field">
+                  <label for="date">Date</label>
+                  <input id="date" name="date" type="date" required>
+                  <p class="field-error" id="date-error" hidden></p>
+                </div>
+              </div>
+              <div class="field">
+                <label for="category">Category</label>
+                <select id="category" name="category" required></select>
+                <p class="field-error" id="category-error" hidden></p>
+              </div>
+              <p class="field-error form-error" id="transaction-error" role="alert" hidden></p>
+              <button class="button button-primary button-wide" id="add-transaction" type="submit">Add expense <span aria-hidden="true">＋</span></button>
+            </form>
+          </section>
+
+          <section class="panel categories-panel" aria-labelledby="categories-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">FOLLOW THE FLOW</p>
+                <h2 id="categories-title">Spending by category</h2>
+              </div>
+            </div>
+            <div id="category-breakdown" class="category-breakdown"></div>
+            <p class="empty-category" id="empty-categories">Your category breakdown will appear here.</p>
+          </section>
+        </aside>
+      </div>
+      <footer class="footer-note">Made for mindful money moments <span aria-hidden="true">✳</span> Your data is private to this app.</footer>
+    </section>
+  </main>
+</body>
+</html>

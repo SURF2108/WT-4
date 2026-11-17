@@ -1,12 +1,18 @@
 {
-  "name": "server-side-validation-demo",
+  "name": "daybook-budget-tracker",
   "version": "1.0.0",
   "private": true,
-  "description": "A Node.js web application demonstrating server-side form validation.",
+  "description": "A private monthly budget and transaction tracker built with Node.js.",
   "scripts": {
-    "start": "node server.js"
+    "start": "node scripts/local-server.js",
+    "test": "node --test"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "@vercel/functions": "^3.11.3",
+    "dotenv": "^18.0.10",
+    "mongodb": "^7.9.0"
   }
 }
